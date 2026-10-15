@@ -1,0 +1,55 @@
+# ===== Python / Backend =====
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+instance/
+.env
+.env.*
+!.env.example
+
+# ===== Database / uploads =====
+*.db
+*.sqlite3
+uploads/
+
+# ===== Node / Frontend (Vite + React) =====
+node_modules/
+dist/
+dist-ssr/
+build/
+.vite/
+*.local
+
+# ===== Logs =====
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+logs/
+*.log
+
+# ===== Editor / IDE =====
+.vscode/
+.idea/
+*.code-workspace
+
+# ===== OS files =====
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===== Misc =====
+*.swp
+*.swo
+.cache/
+coverage/

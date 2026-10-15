@@ -1,0 +1,32 @@
+:root { --ink:#1d2a2e; --paper:#f4f6f5; --line:#d5dcd9; --pine:#1f4a45; --alert:#c8321e; color-scheme: light; }
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+body { font: 15px/1.45 "Segoe UI", system-ui, sans-serif; color: var(--ink); background: var(--paper); }
+.app { display: grid; grid-template-columns: 340px 1fr; height: 100%; }
+aside { display: flex; flex-direction: column; border-right: 1px solid var(--line); background: #fff; overflow-y: auto; }
+header { padding: 18px; background: var(--pine); color: #fff; }
+h1 { margin: 0 0 4px; font: 700 20px Georgia, serif; }
+h2 { margin: 0 0 8px; font: 700 17px Georgia, serif; }
+header p { margin: 0 0 12px; opacity: .85; }
+button { font: inherit; padding: 8px 12px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--ink); cursor: pointer; }
+button.on { background: var(--alert); border-color: var(--alert); color: #fff; }
+button:disabled { opacity: .45; cursor: default; }
+button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible, li:focus-visible { outline: 3px solid #1f6fb2; outline-offset: 1px; }
+.error { background: #fde8e4; color: #8f1d0f; padding: 8px; border-radius: 6px; margin-top: 10px; }
+.list { list-style: none; margin: 0; padding: 0; }
+.list li { display: flex; gap: 10px; padding: 12px 18px; border-bottom: 1px solid var(--line); cursor: pointer; }
+.list li:hover, .list li.sel { background: #e8efed; }
+.list .empty { color: #5d6b6e; cursor: default; }
+.dot { width: 12px; height: 12px; border-radius: 50%; margin-top: 5px; flex: none; }
+small { color: #5d6b6e; }
+.detail { padding: 18px; border-top: 3px solid var(--pine); }
+label { display: block; margin: 10px 0; font-weight: 600; }
+select, input, textarea { display: block; width: 100%; margin-top: 4px; padding: 8px; font: inherit; border: 1px solid var(--line); border-radius: 6px; }
+.steps { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+.log { padding-left: 18px; margin: 10px 0 0; }
+.map { height: 100%; }
+.map.picking { cursor: crosshair; }
+.modal { position: fixed; inset: 0; background: rgba(20,30,30,.5); display: grid; place-items: center; z-index: 1000; }
+.modal form { background: #fff; padding: 22px; border-radius: 10px; width: min(420px, 92vw); }
+.row { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+@media (max-width: 760px) { .app { grid-template-columns: 1fr; grid-template-rows: 55vh 45vh; } aside { order: 2; } }
