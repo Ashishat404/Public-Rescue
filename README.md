@@ -30,6 +30,8 @@ For a production deployment, replace open staff signup with an invite or adminis
     npm install
     npm run dev                      # http://localhost:5173 
 
+To view the development site on a phone, connect the phone and computer to the same Wi-Fi network. Vite listens on the local network, so find the computer's IPv4 address with `ipconfig` and open `http://YOUR_IPV4_ADDRESS:5173` on the phone, for example `http://192.168.1.25:5173`. Keep the FastAPI server running with `uvicorn main:app --reload`; the frontend proxies API requests to it automatically. If Windows Firewall prompts for access, allow Python/Node on Private networks.
+
 The Vite development server proxies `/api/*` requests to FastAPI. The frontend uses `/api/incidents`, `/api/teams`, and the related workflow endpoints.
 
 OpenStreetMap provides the base map tiles. For production use, verify authority contacts, hospital/shelter locations, risk boundaries, and sensor readings against official sources such as the Uttarakhand government, the State Disaster Management Authority, IMD, and OpenStreetMap contributors.

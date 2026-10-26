@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { MapContainer, TileLayer, CircleMarker, Tooltip, useMapEvents } from "react-leaflet";
 import { api } from "./api";
+import Landing from "./Landing.jsx";
 
 const STATUSES = ["Reported", "Assigned", "In Progress", "Rescued", "Resolved", "Closed"];
 const TYPES = ["Landslide", "Flash Flood", "Road Accident", "Cloudburst", "Avalanche", "Earthquake", "Other"];
@@ -36,6 +37,7 @@ function AuthModal({ mode, setMode, form, setForm, onSubmit, onClose, busy, erro
 }
 
 export default function App() {
+  const [publicView, setPublicView] = useState(true);
   const [incidents, setIncidents] = useState([]);
   const [teams, setTeams] = useState([]);
   const [sensors, setSensors] = useState([]);
@@ -89,10 +91,19 @@ export default function App() {
     ["reports", "▤", "Reports"],
   ];
 
+  if (publicView) {
+    return (
+      <Landing
+        onReport={() => { setPublicView(false); setPicking(true); }}
+        onEnter={() => setPublicView(false)}
+      />
+    );
+  }
+
   return (
     <div className="app">
       <aside className={menuOpen ? "sidebar open" : "sidebar"}>
-        <div className="brand"><span className="brand-mark">+</span><span>Public Rescue</span></div>
+        <button type="button" className="brand" onClick={() => setPublicView(true)}><span className="brand-mark">+</span><span>Public Rescue</span></button>
         <nav aria-label="Main navigation">
           {navItems.map(([key, icon, label]) => <button key={key} className={view === key ? "nav-item active" : "nav-item"} onClick={() => navigate(key)}><span>{icon}</span> {label}{key === "incidents" && <b>{active.length}</b>}</button>)}
         </nav>
