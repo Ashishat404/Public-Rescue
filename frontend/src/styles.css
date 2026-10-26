@@ -118,13 +118,14 @@ select, input, textarea { display: block; width: 100%; max-width: 440px; margin-
 
 .hero {
   position: relative;
-  min-height: 86vh;
+  min-height: 100svh;
+  height: 100svh;
   display: flex;
   align-items: center;
   padding: 0 36px;
   background:
-    linear-gradient(90deg, rgba(16,59,54,.94) 0%, rgba(16,59,54,.72) 42%, rgba(16,59,54,.28) 75%, rgba(16,59,54,.12) 100%),
-    linear-gradient(180deg, rgba(8,30,27,.15) 0%, rgba(8,30,27,.55) 100%),
+    linear-gradient(90deg, rgba(16,59,54,.46) 0%, rgba(16,59,54,.25) 42%, rgba(16,59,54,.06) 75%, rgba(16,59,54,.02) 100%),
+    linear-gradient(180deg, rgba(8,30,27,.02) 0%, rgba(8,30,27,.16) 100%),
     url("/hero.png");
   background-size: cover;
   background-position: center;
@@ -132,12 +133,12 @@ select, input, textarea { display: block; width: 100%; max-width: 440px; margin-
 .hero::after {
   content: "";
   position: absolute; inset: 0;
-  background: linear-gradient(0deg, var(--pine-dark), transparent 40%);
+  background: linear-gradient(0deg, rgba(16,59,54,.48), transparent 30%);
   pointer-events: none;
 }
-.hero-copy { position: relative; z-index: 1; max-width: 620px; color: #fff; }
+.hero-copy { position: relative; z-index: 1; width: 100%; max-width: none; padding-top: 20px; color: #fff; }
 .hero-copy .eyebrow { color: var(--sun); }
-.hero-copy h1 { margin: 6px 0 18px; font: 700 clamp(32px, 4.4vw, 52px)/1.12 Georgia, serif; color: #fff; }
+.hero-copy h1 { position: absolute; top: 14px; right: 0; width: min(45vw, 570px); margin: 0; font: 800 clamp(30px, 3.5vw, 44px)/1.1 "Aptos Display", "Trebuchet MS", sans-serif; letter-spacing: 0; color: #fff; }
 .hero-sub { max-width: 54ch; font-size: 16px; line-height: 1.6; color: #dce8e4; }
 .hero-actions { display: flex; gap: 12px; margin: 26px 0 40px; flex-wrap: wrap; }
 .hero-cta { padding: 13px 22px; border-radius: 7px; font-weight: 700; font-size: 14px; }
@@ -145,9 +146,20 @@ select, input, textarea { display: block; width: 100%; max-width: 440px; margin-
 .hero-cta.primary:hover { background: #a92819; }
 .hero-cta.ghost { background: transparent; color: #fff; border: 1.5px solid rgba(255,255,255,.55); }
 .hero-cta.ghost:hover { border-color: #fff; }
-.hero-stats { display: flex; gap: 34px; margin: 0; padding-top: 22px; border-top: 1px solid rgba(255,255,255,.2); }
-.hero-stats dt { margin: 0; font: 700 22px Georgia, serif; color: #fff; }
+.hero-stats { display: flex; gap: 34px; margin: 0; padding-top: 22px; border-top: 4px solid rgba(140, 135, 135, 0.933); }
+  .hero-stats { display: flex; gap: 34px; margin: 54px 0 0; padding-top: 22px; border-top: 4px solid rgba(140,135,135,.933); }
 .hero-stats dd { margin: 2px 0 0; font-size: 12px; color: #bcd0ca; }
+
+.landing-map-section { display: grid; grid-template-columns: minmax(280px, .75fr) minmax(0, 1.25fr); gap: 34px; align-items: stretch; padding: 82px 36px; background: #e5eeea; }
+.landing-map-copy { max-width: 470px; margin: auto 0; }
+.landing-map-copy h2 { margin: 4px 0 14px; color: var(--pine-dark); font: 700 clamp(26px, 3vw, 38px)/1.2 Georgia, serif; }
+.feature-links { display: grid; gap: 0; margin-top: 28px; border-top: 1px solid #c9d8d2; }
+.feature-links a { display: grid; grid-template-columns: 32px 1fr; gap: 2px 10px; padding: 14px 0; border-bottom: 1px solid #c9d8d2; color: var(--pine-dark); text-decoration: none; }
+.feature-links a:hover strong { color: var(--alert); }
+.feature-links span { grid-row: span 2; color: var(--alert); font-size: 12px; font-weight: 700; }
+.feature-links strong { font: 700 17px Georgia, serif; }
+.feature-links small { color: var(--muted); font-size: 12px; }
+.landing-map { min-height: 430px; border: 1px solid #c9d8d2; border-radius: 10px; box-shadow: 0 10px 24px rgba(31,62,58,.12); }
 
 @media (max-width: 760px) {
   .landing-nav, .landing-nav.scrolled { padding: 14px 18px; gap: 16px; }
@@ -155,7 +167,11 @@ select, input, textarea { display: block; width: 100%; max-width: 440px; margin-
   .landing-nav-actions { gap: 14px; margin-left: auto; }
   .link-button { display: none; }
   .hero { padding: 0 20px; min-height: 90vh; }
+  .hero-copy { padding-top: 44px; }
+  .hero-copy h1 { position: static; width: auto; margin: 14px 0 18px; font-size: clamp(32px, 9vw, 46px); }
   .hero-stats { gap: 22px; flex-wrap: wrap; }
+  .landing-map-section { grid-template-columns: 1fr; gap: 28px; padding: 56px 20px; }
+  .landing-map { min-height: 340px; }
 }
 
 /* ---------- Landing: about / contact / donate ---------- */

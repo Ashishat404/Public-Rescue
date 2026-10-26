@@ -1,6 +1,14 @@
 import { useEffect, useState } from "react";
+import { CircleMarker, MapContainer, TileLayer, Tooltip } from "react-leaflet";
 
 const DISTRICT_COUNT = 13;
+const DISTRICTS = [
+  ["Almora", 29.5971, 79.6591], ["Bageshwar", 29.8383, 79.7716], ["Chamoli", 30.401, 79.321],
+  ["Champawat", 29.336, 80.091], ["Dehradun", 30.3165, 78.0322], ["Haridwar", 29.9457, 78.1642],
+  ["Nainital", 29.3919, 79.4542], ["Pauri Garhwal", 30.146, 78.779], ["Pithoragarh", 29.5828, 80.2182],
+  ["Rudraprayag", 30.2844, 78.9811], ["Tehri Garhwal", 30.378, 78.48], ["Udham Singh Nagar", 28.974, 79.397],
+  ["Uttarkashi", 30.7268, 78.4354],
+];
 
 function VolunteerArrow() {
   // Looping squiggle-to-arrowhead, same device as the reference nav link:
@@ -95,6 +103,23 @@ export default function Landing({ onReport, onEnter }) {
             <div><dt>6-stage</dt><dd>response pipeline</dd></div>
           </dl>
         </div>
+      </section>
+
+      <section className="landing-map-section" id="coverage">
+        <div className="landing-map-copy">
+          <p className="eyebrow">Statewide coverage</p>
+          <h2>One view for every district response team.</h2>
+          <p className="section-sub">Explore the Uttarakhand response network. Public users can report an incident from the map, while control-room teams coordinate the response from the dashboard.</p>
+          <div className="feature-links" aria-label="Public Rescue features">
+            <a href="#about"><span>01</span><strong>Overview</strong><small>How Public Rescue connects people, sensors and teams</small></a>
+            <a href="#contact"><span>02</span><strong>Incidents</strong><small>Report a danger location without creating an account</small></a>
+            <a href="#coverage"><span>03</span><strong>District network</strong><small>View coverage across all 13 Uttarakhand districts</small></a>
+          </div>
+        </div>
+        <MapContainer center={[30.15, 79.25]} zoom={7} scrollWheelZoom={false} className="landing-map">
+          <TileLayer attribution="&copy; OpenStreetMap contributors" url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" />
+          {DISTRICTS.map(([name, lat, lng]) => <CircleMarker key={name} center={[lat, lng]} radius={6} pathOptions={{ color: "#fff", weight: 2, fillColor: "#c8321e", fillOpacity: 0.9 }}><Tooltip>{name} district response coverage</Tooltip></CircleMarker>)}
+        </MapContainer>
       </section>
 
       <section id="about" className="landing-section">
