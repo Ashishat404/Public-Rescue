@@ -95,7 +95,6 @@ export default function Landing({ onReport, onEnter }) {
           </p>
           <div className="hero-actions">
             <button type="button" className="hero-cta primary" onClick={onReport}>Report an incident</button>
-            <button type="button" className="hero-cta ghost" onClick={onEnter}>Enter control room</button>
           </div>
           <dl className="hero-stats">
             <div><dt>{DISTRICT_COUNT}</dt><dd>districts monitored</dd></div>
