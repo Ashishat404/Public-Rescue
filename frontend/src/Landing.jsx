@@ -84,7 +84,7 @@ export default function Landing({ onReport, onEnter }) {
         </div>
       </header>
 
-      <section className="hero">
+      <section className="hero">cle
         <div className="hero-copy">
           <p className="eyebrow">District response network · Uttarakhand</p>
           <h1>When the hills turn dangerous, minutes decide outcomes.</h1>

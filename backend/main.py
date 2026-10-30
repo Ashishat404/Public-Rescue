@@ -2,6 +2,7 @@
 from datetime import datetime, timezone
 import hashlib
 import hmac
+import os
 import secrets
 import sqlite3
 from typing import Optional
@@ -14,6 +15,11 @@ DB_PATH = "rescue.db"
 STATUSES = ["Reported", "Assigned", "In Progress", "Rescued", "Resolved", "Closed"]
 THRESHOLDS = {"rainfall_mm": 100, "soil_moisture": 80, "water_level_cm": 300}
 TOKEN_TTL_SECONDS = 60 * 60 * 12
+DEMO_ACCOUNTS = [
+    ("Rescue Administrator", "admin@publicrescue.local", "RescueAdmin!2026", "admin"),
+    ("Response Operator", "operator@publicrescue.local", "RescueOperator!2026", "staff"),
+    ("QA Operator", "qa@publicrescue.local", "RescueQa!2026", "staff"),
+]
 DISTRICT_DATA = [
     ("Almora", 29.5971, 79.6591),
     ("Bageshwar", 29.8383, 79.7716),
@@ -135,6 +141,7 @@ def init_db():
                 "INSERT INTO incident_log (incident_id, time, status) VALUES (?, ?, ?)",
                 (cursor.lastrowid, created, "Reported"),
             )
+        seed_demo_accounts(connection)
 
 
 class IncidentIn(BaseModel):
@@ -204,6 +211,22 @@ def staff_user(authorization: Optional[str] = Header(default=None)):
     return dict(user)
 
 
+def admin_user(user=Depends(staff_user)):
+    if user["role"] != "admin":
+        raise HTTPException(403, "Administrator access required")
+    return user
+
+
+def seed_demo_accounts(connection):
+    if os.getenv("PUBLIC_RESCUE_ENV", "development").lower() == "production":
+        return
+    for name, email, password, role in DEMO_ACCOUNTS:
+        connection.execute(
+            "INSERT OR IGNORE INTO users (name, email, password_hash, role, created) VALUES (?, ?, ?, ?, ?)",
+            (name, email, password_hash(password), role, now()),
+        )
+
+
 def incident_json(row, connection):
     incident = dict(row)
     incident["log"] = [
@@ -222,7 +245,7 @@ def startup():
 
 
 @app.post("/auth/signup", status_code=201)
-def signup(body: SignupIn):
+def signup(body: SignupIn, user=Depends(admin_user)):
     if len(body.password) < 8:
         raise HTTPException(400, "Password must be at least 8 characters")
     email = body.email.strip().lower()

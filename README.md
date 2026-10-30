@@ -13,7 +13,7 @@ The seed data includes one district response center and one monitoring node for 
 
 Main endpoints:
 
-- `POST /auth/signup` and `POST /auth/login`
+- `POST /auth/signup` (administrator only) and `POST /auth/login` 
 - `GET /auth/me`
 - `GET /incidents` and `POST /incidents`
 - `PATCH /incidents/{id}/assign`
@@ -21,9 +21,19 @@ Main endpoints:
 - `GET /teams` and `GET /sensors`
 - `POST /sensor-data`
 
-Public users can view incidents and submit reports without an account. Staff accounts are used for assignment, status updates, sensor ingestion, and future operational tools. Staff passwords are hashed with PBKDF2 and login sessions expire after 12 hours.
+Public users can view incidents and submit reports without an account. Staff accounts are used for assignment, status updates, sensor ingestion, and future operational tools. Public staff self-registration is disabled; an authenticated administrator must create additional accounts through the signup API. Staff passwords are hashed with PBKDF2 and login sessions expire after 12 hours.
 
-For a production deployment, replace open staff signup with an invite or administrator approval flow, use HTTPS, add rate limiting, and move the SQLite database to managed storage.
+In development, startup seeds these idempotent demo accounts:
+
+| Role | Email | Password |
+| --- | --- | --- |
+| Administrator | `admin@publicrescue.local` | `RescueAdmin!2026` |
+| Staff operator | `operator@publicrescue.local` | `RescueOperator!2026` |
+| QA staff tester | `qa@publicrescue.local` | `RescueQa!2026` |
+
+Set `PUBLIC_RESCUE_ENV=production` to prevent demo-account seeding. Change or remove these credentials before exposing a non-development deployment.
+
+For a production deployment, use HTTPS, add rate limiting, rotate all development credentials, and move the SQLite database to managed storage.
 
 ## Frontend (React + Leaflet + OpenStreetMap)
     cd frontend

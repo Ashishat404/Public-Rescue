@@ -24,15 +24,13 @@ function IncidentDetail({ incident, free, teams, assign, setStatus, user, onLogi
   </section>;
 }
 
-function AuthModal({ mode, setMode, form, setForm, onSubmit, onClose, busy, error }) {
+function AuthModal({ form, setForm, onSubmit, onClose, busy, error }) {
   return <div className="modal" onClick={onClose}><form className="auth-form" onClick={(event) => event.stopPropagation()} onSubmit={onSubmit}>
-    <p className="eyebrow">Staff access</p><h2>{mode === "login" ? "Sign in to control room" : "Create staff account"}</h2>
-    {mode === "signup" && <label>Full name<input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></label>}
+    <p className="eyebrow">Staff access</p><h2>Sign in to control room</h2>
     <label>Email<input required type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /></label>
     <label>Password<input required minLength="8" type="password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} /></label>
     {error && <p className="auth-error">{error}</p>}
-    <div className="row"><button type="button" onClick={onClose}>Cancel</button><button className="on" disabled={busy}>{busy ? "Please wait..." : mode === "login" ? "Sign in" : "Create account"}</button></div>
-    <button type="button" className="auth-switch" onClick={() => setMode(mode === "login" ? "signup" : "login")}>{mode === "login" ? "Need a staff account? Create one" : "Already registered? Sign in"}</button>
+    <div className="row"><button type="button" onClick={onClose}>Cancel</button><button className="on" disabled={busy}>{busy ? "Please wait..." : "Sign in"}</button></div>
   </form></div>;
 }
 
@@ -48,7 +46,6 @@ export default function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [view, setView] = useState("overview");
   const [user, setUser] = useState(null);
-  const [authMode, setAuthMode] = useState("login");
   const [authOpen, setAuthOpen] = useState(false);
   const [authBusy, setAuthBusy] = useState(false);
   const [authError, setAuthError] = useState("");
@@ -73,11 +70,10 @@ export default function App() {
   const free = teams.filter((t) => t.available);
   const highPriority = incidents.filter((i) => i.severity === "High" && !["Resolved", "Closed"].includes(i.status));
   const navigate = (nextView) => { setView(nextView); setMenuOpen(false); };
-  const openAuth = (mode = "login") => { setAuthMode(mode); setAuthError(""); setAuthOpen(true); };
+  const openAuth = () => { setAuthError(""); setAuthOpen(true); };
   const submitAuth = async (event) => {
     event.preventDefault(); setAuthBusy(true); setAuthError("");
     try {
-      if (authMode === "signup") await api.signup(authForm);
       const result = await api.login({ email: authForm.email, password: authForm.password });
       localStorage.setItem("rescue_staff_token", result.token); setUser(result.user); setAuthOpen(false); setAuthForm({ name: "", email: "", password: "" });
     } catch (authRequestError) { setAuthError(authRequestError.message); } finally { setAuthBusy(false); }
@@ -167,7 +163,7 @@ export default function App() {
         </section>}
       </main>
 
-      {authOpen && <AuthModal mode={authMode} setMode={setAuthMode} form={authForm} setForm={setAuthForm} onSubmit={submitAuth} onClose={() => setAuthOpen(false)} busy={authBusy} error={authError} />}
+      {authOpen && <AuthModal form={authForm} setForm={setAuthForm} onSubmit={submitAuth} onClose={() => setAuthOpen(false)} busy={authBusy} error={authError} />}
 
       {draft && (
         <div className="modal" onClick={() => setDraft(null)}>
