@@ -7,7 +7,7 @@ React + FastAPI rescue dashboard with a persistent SQLite database, incident wor
     pip install -r requirements.txt
     uvicorn main:app --reload        # http://127.0.0.1:8000/docs
 
-The database is created automatically as `rescue.db` on first startup.
+The database is created automatically as `rescue.db` on first startup. 
 
 The seed data includes one district response center and one monitoring node for each of Uttarakhand's 13 districts: Almora, Bageshwar, Chamoli, Champawat, Dehradun, Haridwar, Nainital, Pauri Garhwal, Pithoragarh, Rudraprayag, Tehri Garhwal, Udham Singh Nagar, and Uttarkashi. These are reference/demo coordinates for the prototype, not live government feeds.
 

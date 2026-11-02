@@ -13,6 +13,7 @@ function MapClicks({ onPick }) {
   return null;
 }
 
+
 function IncidentDetail({ incident, free, teams, assign, setStatus, user, onLogin }) {
   return <section className="detail-card"><div className="card-heading"><div><p className="eyebrow">Selected incident</p><h2>#{incident.id} {incident.type}</h2></div><span className="status-pill">{incident.status}</span></div>
     <p>{incident.description || "No description."}</p><p><small>{incident.lat.toFixed(4)}, {incident.lng.toFixed(4)} · Contact: {incident.contact || "n/a"}</small></p>
