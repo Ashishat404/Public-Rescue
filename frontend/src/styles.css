@@ -178,8 +178,9 @@ select:focus, input:focus, textarea:focus { border-color: var(--pine); }
 }
 
 /* ---------- Landing: about / contact / donate ---------- */
-.landing-section { max-width: 980px; margin: 0 auto; padding: 86px 36px; background: var(--paper); }
+.landing-section { padding: 86px 0; background: var(--paper); }
 .landing-section-alt { background: #fff; }
+.landing-section-inner { max-width: 980px; margin: 0 auto; padding: 0 36px; }
 .landing-section h2 { margin: 4px 0 14px; color: var(--pine-dark); font: 700 clamp(24px, 3vw, 34px)/1.25 Georgia, serif; max-width: 20ch; }
 .section-sub { max-width: 68ch; color: var(--muted); font-size: 15px; line-height: 1.65; margin: 0 0 32px; }
 
@@ -203,7 +204,8 @@ select:focus, input:focus, textarea:focus { border-color: var(--pine); }
 .hero-cta[disabled] { opacity: .55; cursor: not-allowed; box-shadow: none; }
 
 @media (max-width: 760px) {
-  .landing-section { padding: 56px 20px; }
+  .landing-section { padding: 56px 0; }
+  .landing-section-inner { padding: 0 20px; }
   .about-grid { grid-template-columns: 1fr; }
   .numbers-list li { flex-direction: column; align-items: flex-start; gap: 4px; }
 }

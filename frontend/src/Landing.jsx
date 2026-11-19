@@ -84,7 +84,7 @@ export default function Landing({ onReport, onEnter }) {
         </div>
       </header>
 
-      <section className="hero">cle
+      <section className="hero">
         <div className="hero-copy">
           <p className="eyebrow">District response network · Uttarakhand</p>
           <h1>When the hills turn dangerous, minutes decide outcomes.</h1>
@@ -122,65 +122,71 @@ export default function Landing({ onReport, onEnter }) {
       </section>
 
       <section id="about" className="landing-section">
-        <p className="eyebrow">What we do</p>
-        <h2>From the first sign of danger to a team on the ground.</h2>
-        <p className="section-sub">
-          Public Rescue is a disaster-response platform built for Uttarakhand's hill and rural
-          blocks, where a landslide-blocked road or a sudden cloudburst can cut a village off
-          from help in minutes. It connects three things that usually don't talk to each other:
-          the people on the ground, the sensors watching the terrain, and the teams who respond.
-        </p>
-        <div className="about-grid">
-          {WHAT_WE_DO.map((item) => (
-            <div className="about-card" key={item.title}>
-              <h3>{item.title}</h3>
-              <p>{item.body}</p>
-            </div>
-          ))}
+        <div className="landing-section-inner">
+          <p className="eyebrow">What we do</p>
+          <h2>From the first sign of danger to a team on the ground.</h2>
+          <p className="section-sub">
+            Public Rescue is a disaster-response platform built for Uttarakhand's hill and rural
+            blocks, where a landslide-blocked road or a sudden cloudburst can cut a village off
+            from help in minutes. It connects three things that usually don't talk to each other:
+            the people on the ground, the sensors watching the terrain, and the teams who respond.
+          </p>
+          <div className="about-grid">
+            {WHAT_WE_DO.map((item) => (
+              <div className="about-card" key={item.title}>
+                <h3>{item.title}</h3>
+                <p>{item.body}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
       <section id="contact" className="landing-section landing-section-alt">
-        <p className="eyebrow">Contact · Emergency numbers</p>
-        <h2>If someone is in danger right now, call — don't wait on the website.</h2>
-        <p className="section-sub">
-          This platform supports district response coordination. For an immediate, life-threatening
-          emergency, use the numbers below first.
-        </p>
-        <ul className="numbers-list">
-          {EMERGENCY_NUMBERS.map((n) => (
-            <li key={n.label}>
-              <span>{n.label}</span>
-              <a href={`tel:${n.value.replace(/[^\d]/g, "")}`}>{n.value}</a>
-            </li>
-          ))}
-        </ul>
-        <p className="numbers-note">
-          Numbers sourced from the Uttarakhand State Disaster Management Authority. Please verify
-          with your local district office, as helpline numbers can change.
-        </p>
+        <div className="landing-section-inner">
+          <p className="eyebrow">Contact · Emergency numbers</p>
+          <h2>If someone is in danger right now, call — don't wait on the website.</h2>
+          <p className="section-sub">
+            This platform supports district response coordination. For an immediate, life-threatening
+            emergency, use the numbers below first.
+          </p>
+          <ul className="numbers-list">
+            {EMERGENCY_NUMBERS.map((n) => (
+              <li key={n.label}>
+                <span>{n.label}</span>
+                <a href={`tel:${n.value.replace(/[^\d]/g, "")}`}>{n.value}</a>
+              </li>
+            ))}
+          </ul>
+          <p className="numbers-note">
+            Numbers sourced from the Uttarakhand State Disaster Management Authority. Please verify
+            with your local district office, as helpline numbers can change.
+          </p>
+        </div>
       </section>
 
       <section id="donate" className="landing-section">
-        <p className="eyebrow">Donate</p>
-        <h2>What a contribution to Public Rescue actually funds.</h2>
-        <p className="section-sub">
-          We run on a mix of field equipment, trained volunteers and always-on infrastructure.
-          Here's roughly how a typical contribution is put to use. <em>(Sample figures — swap in
-          your organisation's real, audited breakdown before this goes live.)</em>
-        </p>
-        <div className="fund-bars">
-          {FUND_ALLOCATION.map((f) => (
-            <div className="fund-row" key={f.label}>
-              <div className="fund-row-top"><span>{f.label}</span><span>{f.pct}%</span></div>
-              <div className="fund-bar"><div className="fund-bar-fill" style={{ width: `${f.pct}%` }} /></div>
-            </div>
-          ))}
+        <div className="landing-section-inner">
+          <p className="eyebrow">Donate</p>
+          <h2>What a contribution to Public Rescue actually funds.</h2>
+          <p className="section-sub">
+            We run on a mix of field equipment, trained volunteers and always-on infrastructure.
+            Here's roughly how a typical contribution is put to use. <em>(Sample figures — swap in
+            your organisation's real, audited breakdown before this goes live.)</em>
+          </p>
+          <div className="fund-bars">
+            {FUND_ALLOCATION.map((f) => (
+              <div className="fund-row" key={f.label}>
+                <div className="fund-row-top"><span>{f.label}</span><span>{f.pct}%</span></div>
+                <div className="fund-bar"><div className="fund-bar-fill" style={{ width: `${f.pct}%` }} /></div>
+              </div>
+            ))}
+          </div>
+          <button type="button" className="hero-cta primary" disabled title="Payment gateway not connected yet">
+            Donate now
+          </button>
+          <p className="numbers-note">Online payments aren't connected yet — this button is a placeholder.</p>
         </div>
-        <button type="button" className="hero-cta primary" disabled title="Payment gateway not connected yet">
-          Donate now
-        </button>
-        <p className="numbers-note">Online payments aren't connected yet — this button is a placeholder.</p>
       </section>
     </div>
   );
