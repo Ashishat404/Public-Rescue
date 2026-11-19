@@ -57,6 +57,7 @@ const FUND_ALLOCATION = [
 
 export default function Landing({ onReport, onEnter }) {
   const [scrolled, setScrolled] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -68,7 +69,29 @@ export default function Landing({ onReport, onEnter }) {
   return (
     <div className="landing" id="home">
       <header className={scrolled ? "landing-nav scrolled" : "landing-nav"}>
-        <div className="landing-brand"><span className="brand-mark">+</span><span>Public Rescue</span></div>
+        <div className="landing-menu">
+          <button
+            type="button"
+            className={menuOpen ? "hamburger open" : "hamburger"}
+            aria-label="Open control-room menu"
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((open) => !open)}
+          >
+            <span />
+            <span />
+            <span />
+          </button>
+          {menuOpen && (
+            <nav className="landing-menu-panel" aria-label="Control room features">
+              <button type="button" onClick={() => { setMenuOpen(false); onEnter("overview"); }}><span>◈</span>Overview</button>
+              <button type="button" onClick={() => { setMenuOpen(false); onEnter("incidents"); }}><span>!</span>Incidents</button>
+              <button type="button" onClick={() => { setMenuOpen(false); onEnter("teams"); }}><span>▦</span>Response teams</button>
+              <button type="button" onClick={() => { setMenuOpen(false); onEnter("sensors"); }}><span>⌁</span>Sensors</button>
+              <button type="button" onClick={() => { setMenuOpen(false); onEnter("reports"); }}><span>▤</span>Reports</button>
+            </nav>
+          )}
+        </div>
+        <div className="landing-brand"><span>Public Rescue</span></div>
         <a className="volunteer-link" href="#volunteer">
           <VolunteerArrow />
           Become a volunteer

@@ -61,6 +61,18 @@ export default function App() {
 
   useEffect(() => { load(); const id = setInterval(load, 5000); return () => clearInterval(id); }, [load]);
   useEffect(() => { if (localStorage.getItem("rescue_staff_token")) api.me().then(setUser).catch(() => localStorage.removeItem("rescue_staff_token")); }, []);
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") setMenuOpen(false);
+    };
+    document.body.classList.add("drawer-open");
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.classList.remove("drawer-open");
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [menuOpen]);
 
   const act = (fn) => async (...a) => { try { await fn(...a); await load(); } catch (e) { setError(e.message); } };
   const assign = act(api.assign), setStatus = act(api.setStatus);
@@ -92,15 +104,16 @@ export default function App() {
     return (
       <Landing
         onReport={() => { setPublicView(false); setPicking(true); }}
-        onEnter={() => setPublicView(false)}
+        onEnter={(nextView = "overview") => { setView(nextView); setPublicView(false); }}
       />
     );
   }
 
   return (
     <div className="app">
+      {menuOpen && <button type="button" className="sidebar-backdrop" aria-label="Close navigation" onClick={() => setMenuOpen(false)} />}
       <aside className={menuOpen ? "sidebar open" : "sidebar"}>
-        <button type="button" className="brand" onClick={() => setPublicView(true)}><span className="brand-mark">+</span><span>Public Rescue</span></button>
+        <button type="button" className="brand" onClick={() => setPublicView(true)}><span>Public Rescue</span></button>
         <nav aria-label="Main navigation">
           {navItems.map(([key, icon, label]) => <button key={key} className={view === key ? "nav-item active" : "nav-item"} onClick={() => navigate(key)}><span>{icon}</span> {label}{key === "incidents" && <b>{active.length}</b>}</button>)}
         </nav>
@@ -109,7 +122,7 @@ export default function App() {
 
       <main className="workspace">
         <header className="topbar">
-          <button className="menu-button" aria-label="Toggle navigation" onClick={() => setMenuOpen(!menuOpen)}><span /><span /><span /></button>
+          <button className={menuOpen ? "menu-button open" : "menu-button"} aria-label="Toggle navigation" aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)}><span /><span /><span /></button>
           <div><p className="eyebrow">District response network</p><h1>Rescue Control Room</h1></div>
           <button className={picking ? "report-button on" : "report-button"} onClick={() => setPicking(!picking)}>
             <span>+</span>{picking ? "Place report on map" : "Report incident"}
