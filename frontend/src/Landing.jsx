@@ -74,6 +74,12 @@ export default function Landing({ onReport, onEnter, onVolunteerAuth }) {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  useEffect(() => {
+    if (!volunteerOpen) return undefined;
+    document.body.classList.add("drawer-open");
+    return () => document.body.classList.remove("drawer-open");
+  }, [volunteerOpen]);
+
   const useCurrentLocation = () => {
     if (!navigator.geolocation) {
       setVolunteerError("Location access is not supported by this browser.");

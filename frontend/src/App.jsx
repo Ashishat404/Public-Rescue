@@ -94,13 +94,14 @@ export default function App() {
     const closeOnEscape = (event) => {
       if (event.key === "Escape") setMenuOpen(false);
     };
-    document.body.classList.add("drawer-open");
     window.addEventListener("keydown", closeOnEscape);
-    return () => {
-      document.body.classList.remove("drawer-open");
-      window.removeEventListener("keydown", closeOnEscape);
-    };
+    return () => window.removeEventListener("keydown", closeOnEscape);
   }, [menuOpen]);
+  useEffect(() => {
+    if (!(menuOpen || authOpen || draft)) return undefined;
+    document.body.classList.add("drawer-open");
+    return () => document.body.classList.remove("drawer-open");
+  }, [menuOpen, authOpen, draft]);
 
   const act = (fn) => async (...a) => { try { await fn(...a); await load(); } catch (e) { setError(e.message); } };
   const assign = act(api.assign), setStatus = act(api.setStatus);
