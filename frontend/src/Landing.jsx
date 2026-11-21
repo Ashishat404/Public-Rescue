@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { CircleMarker, MapContainer, TileLayer, Tooltip } from "react-leaflet";
+import { api } from "./api";
 
 const DISTRICT_COUNT = 13;
 const DISTRICTS = [
@@ -55,9 +56,16 @@ const FUND_ALLOCATION = [
   { label: "Platform & day-to-day operations", pct: 10 },
 ];
 
-export default function Landing({ onReport, onEnter }) {
+export default function Landing({ onReport, onEnter, onVolunteerAuth }) {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [volunteerOpen, setVolunteerOpen] = useState(false);
+  const [volunteerMode, setVolunteerMode] = useState("signup");
+  const [volunteerBusy, setVolunteerBusy] = useState(false);
+  const [volunteerError, setVolunteerError] = useState("");
+  const [volunteerForm, setVolunteerForm] = useState({
+    name: "", email: "", password: "", lat: "", lng: "", radius_km: 25,
+  });
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -65,6 +73,91 @@ export default function Landing({ onReport, onEnter }) {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  const useCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      setVolunteerError("Location access is not supported by this browser.");
+      return;
+    }
+    setVolunteerError("");
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => setVolunteerForm((form) => ({ ...form, lat: coords.latitude, lng: coords.longitude })),
+      () => setVolunteerError("Location access was denied. Enter a location manually."),
+      { enableHighAccuracy: true, timeout: 10000 },
+    );
+  };
+
+  const base64ToUint8Array = (base64) => {
+    const padding = "=".repeat((4 - base64.length % 4) % 4);
+    const raw = atob((base64 + padding).replace(/-/g, "+").replace(/_/g, "/"));
+    return Uint8Array.from([...raw].map((character) => character.charCodeAt(0)));
+  };
+
+  const enablePush = async () => {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") return;
+      const registration = await navigator.serviceWorker.register("/sw.js");
+      const existing = await registration.pushManager.getSubscription();
+      if (existing) {
+        const subscription = existing.toJSON();
+        await api.pushSubscription({
+          endpoint: subscription.endpoint,
+          p256dh: subscription.keys.p256dh,
+          auth: subscription.keys.auth,
+        });
+        return;
+      }
+      const { publicKey } = await api.vapidPublicKey();
+      if (!publicKey) return;
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: base64ToUint8Array(publicKey),
+      });
+      const data = subscription.toJSON();
+      await api.pushSubscription({
+        endpoint: data.endpoint,
+        p256dh: data.keys.p256dh,
+        auth: data.keys.auth,
+      });
+    } catch (pushError) {
+      console.warn("Browser push setup failed:", pushError);
+    }
+  };
+
+  const submitVolunteer = async (event) => {
+    event.preventDefault();
+    setVolunteerBusy(true);
+    setVolunteerError("");
+    try {
+      let result;
+      if (volunteerMode === "signup") {
+        result = await api.volunteerSignup({
+          name: volunteerForm.name,
+          email: volunteerForm.email,
+          password: volunteerForm.password,
+          lat: Number(volunteerForm.lat),
+          lng: Number(volunteerForm.lng),
+          radius_km: Number(volunteerForm.radius_km),
+        });
+      } else {
+        result = await api.login({
+          email: volunteerForm.email,
+          password: volunteerForm.password,
+        });
+        if (result.user.role !== "volunteer") throw new Error("This account is not a volunteer account.");
+      }
+      localStorage.setItem("rescue_staff_token", result.token);
+      setVolunteerOpen(false);
+      onVolunteerAuth(result.user);
+      await enablePush();
+    } catch (error) {
+      setVolunteerError(error.message);
+    } finally {
+      setVolunteerBusy(false);
+    }
+  };
 
   return (
     <div className="landing" id="home">
@@ -92,10 +185,10 @@ export default function Landing({ onReport, onEnter }) {
           )}
         </div>
         <div className="landing-brand"><span>Public Rescue</span></div>
-        <a className="volunteer-link" href="#volunteer">
+        <button type="button" className="volunteer-link" onClick={() => { setVolunteerError(""); setVolunteerOpen(true); }}>
           <VolunteerArrow />
           Become a volunteer
-        </a>
+        </button>
         <nav className="landing-links" aria-label="Primary">
           <a href="#home">Home</a>
           <a href="#about">About</a>
@@ -211,6 +304,33 @@ export default function Landing({ onReport, onEnter }) {
           <p className="numbers-note">Online payments aren't connected yet — this button is a placeholder.</p>
         </div>
       </section>
+
+      {volunteerOpen && (
+        <div className="modal" onClick={() => setVolunteerOpen(false)}>
+          <form className="auth-form" onClick={(event) => event.stopPropagation()} onSubmit={submitVolunteer}>
+            <p className="eyebrow">Volunteer network</p>
+            <h2>{volunteerMode === "signup" ? "Sign up as a volunteer" : "Volunteer sign in"}</h2>
+            {volunteerMode === "signup" && (
+              <label>Full name<input required value={volunteerForm.name} onChange={(event) => setVolunteerForm({ ...volunteerForm, name: event.target.value })} /></label>
+            )}
+            <label>Email<input required type="email" value={volunteerForm.email} onChange={(event) => setVolunteerForm({ ...volunteerForm, email: event.target.value })} /></label>
+            <label>Password<input required minLength="8" type="password" value={volunteerForm.password} onChange={(event) => setVolunteerForm({ ...volunteerForm, password: event.target.value })} /></label>
+            {volunteerMode === "signup" && (
+              <>
+                <div className="row"><button type="button" onClick={useCurrentLocation}>Use my current location</button></div>
+                <label>Latitude<input required type="number" step="any" min="-90" max="90" value={volunteerForm.lat} onChange={(event) => setVolunteerForm({ ...volunteerForm, lat: event.target.value })} /></label>
+                <label>Longitude<input required type="number" step="any" min="-180" max="180" value={volunteerForm.lng} onChange={(event) => setVolunteerForm({ ...volunteerForm, lng: event.target.value })} /></label>
+                <label>Alert radius (km)<input required type="number" min="1" max="500" value={volunteerForm.radius_km} onChange={(event) => setVolunteerForm({ ...volunteerForm, radius_km: event.target.value })} /></label>
+              </>
+            )}
+            {volunteerError && <p className="auth-error">{volunteerError}</p>}
+            <button type="button" className="auth-switch" onClick={() => { setVolunteerError(""); setVolunteerMode(volunteerMode === "signup" ? "login" : "signup"); }}>
+              {volunteerMode === "signup" ? "Already a volunteer? Sign in" : "New volunteer? Create an account"}
+            </button>
+            <div className="row"><button type="button" onClick={() => setVolunteerOpen(false)}>Cancel</button><button className="on" disabled={volunteerBusy}>{volunteerBusy ? "Please wait..." : volunteerMode === "signup" ? "Sign up" : "Sign in"}</button></div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }

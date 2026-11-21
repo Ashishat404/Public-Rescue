@@ -5,6 +5,13 @@ import hmac
 import os
 import secrets
 import sqlite3
+import math
+import json
+try:
+    from pywebpush import webpush, WebPushException
+except ImportError:
+    webpush = None
+    WebPushException = Exception
 from typing import Optional
 
 from fastapi import Depends, FastAPI, Header, HTTPException
@@ -98,12 +105,24 @@ def init_db():
                 email TEXT NOT NULL UNIQUE,
                 password_hash TEXT NOT NULL,
                 role TEXT NOT NULL DEFAULT 'staff',
+                lat REAL,
+                lng REAL,
+                radius_km REAL NOT NULL DEFAULT 25,
+                created TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS push_subscriptions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                endpoint TEXT NOT NULL UNIQUE,
+                p256dh TEXT NOT NULL,
+                auth TEXT NOT NULL,
                 created TEXT NOT NULL
             );
             CREATE TABLE IF NOT EXISTS sessions (
                 token_hash TEXT PRIMARY KEY,
                 user_id INTEGER NOT NULL,
-                expires_at INTEGER NOT NULL
+                expires_at INTEGER NOT NULL,
+                created TEXT NOT NULL DEFAULT ''
             );
             """
         )
@@ -118,9 +137,17 @@ def init_db():
             connection.execute("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'staff'")
         if "created" not in user_columns:
             connection.execute("ALTER TABLE users ADD COLUMN created TEXT NOT NULL DEFAULT ''")
+        if "lat" not in user_columns:
+            connection.execute("ALTER TABLE users ADD COLUMN lat REAL")
+        if "lng" not in user_columns:
+            connection.execute("ALTER TABLE users ADD COLUMN lng REAL")
+        if "radius_km" not in user_columns:
+            connection.execute("ALTER TABLE users ADD COLUMN radius_km REAL NOT NULL DEFAULT 25")
         session_columns = [item[1] for item in connection.execute("PRAGMA table_info(sessions)")]
         if "expires_at" not in session_columns:
             connection.execute("ALTER TABLE sessions ADD COLUMN expires_at INTEGER NOT NULL DEFAULT 0")
+        if "created" not in session_columns:
+            connection.execute("ALTER TABLE sessions ADD COLUMN created TEXT NOT NULL DEFAULT ''")
         for team_id, (district, lat, lng) in enumerate(DISTRICT_DATA, start=1):
             connection.execute(
                 "INSERT OR IGNORE INTO teams (id, name, district, lat, lng, available) VALUES (?, ?, ?, ?, ?, 1)",
@@ -175,6 +202,21 @@ class SignupIn(BaseModel):
     name: str
     email: str
     password: str
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+    radius_km: float = 25
+
+
+class LocationIn(BaseModel):
+    lat: float
+    lng: float
+    radius_km: float = 25
+
+
+class PushSubscriptionIn(BaseModel):
+    endpoint: str
+    p256dh: str
+    auth: str
 
 
 class LoginIn(BaseModel):
@@ -203,7 +245,7 @@ def staff_user(authorization: Optional[str] = Header(default=None)):
         raise HTTPException(401, "Staff login required")
     with connect() as connection:
         user = connection.execute(
-            "SELECT users.id, users.name, users.email, users.role FROM users JOIN sessions ON sessions.user_id = users.id WHERE sessions.token_hash = ? AND sessions.expires_at > strftime('%s', 'now')",
+            "SELECT users.id, users.name, users.email, users.role, users.lat, users.lng, users.radius_km FROM users JOIN sessions ON sessions.user_id = users.id WHERE sessions.token_hash = ? AND sessions.expires_at > strftime('%s', 'now')",
             (token_hash(authorization[7:].strip()),),
         ).fetchone()
     if not user:
@@ -215,6 +257,59 @@ def admin_user(user=Depends(staff_user)):
     if user["role"] != "admin":
         raise HTTPException(403, "Administrator access required")
     return user
+
+
+def volunteer_user(user=Depends(staff_user)):
+    if user["role"] != "volunteer":
+        raise HTTPException(403, "Volunteer account required")
+    return user
+
+
+def distance_km(lat1: float, lng1: float, lat2: float, lng2: float):
+    radius = 6371.0
+    p1 = math.radians(lat1)
+    p2 = math.radians(lat2)
+    delta_lat = math.radians(lat2 - lat1)
+    delta_lng = math.radians(lng2 - lng1)
+    a = math.sin(delta_lat / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(delta_lng / 2) ** 2
+    return radius * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+
+def notify_nearby_volunteers(connection, incident):
+    public_key = os.getenv("VAPID_PUBLIC_KEY")
+    private_key = os.getenv("VAPID_PRIVATE_KEY")
+    contact = os.getenv("VAPID_CONTACT_EMAIL", "mailto:admin@publicrescue.local")
+    if not public_key or not private_key or webpush is None:
+        return
+    payload = json.dumps({
+        "title": f"Nearby {incident['type']} reported",
+        "body": incident["description"] or f"Incident #{incident['id']} needs attention.",
+        "url": "/",
+    })
+    volunteers = connection.execute(
+        "SELECT id, lat, lng, radius_km FROM users WHERE role = 'volunteer' AND lat IS NOT NULL AND lng IS NOT NULL"
+    ).fetchall()
+    for volunteer in volunteers:
+        distance = distance_km(volunteer["lat"], volunteer["lng"], incident["lat"], incident["lng"])
+        if distance > volunteer["radius_km"]:
+            continue
+        subscriptions = connection.execute(
+            "SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = ?",
+            (volunteer["id"],),
+        ).fetchall()
+        for subscription in subscriptions:
+            try:
+                webpush(
+                    subscription_info={
+                        "endpoint": subscription["endpoint"],
+                        "keys": {"p256dh": subscription["p256dh"], "auth": subscription["auth"]},
+                    },
+                    data=payload,
+                    vapid_private_key=private_key,
+                    vapid_claims={"sub": contact},
+                )
+            except WebPushException:
+                connection.execute("DELETE FROM push_subscriptions WHERE endpoint = ?", (subscription["endpoint"],))
 
 
 def seed_demo_accounts(connection):
@@ -248,6 +343,8 @@ def startup():
 def signup(body: SignupIn, user=Depends(admin_user)):
     if len(body.password) < 8:
         raise HTTPException(400, "Password must be at least 8 characters")
+    if not body.name.strip():
+        raise HTTPException(400, "Enter a staff name")
     email = body.email.strip().lower()
     if not email or "@" not in email:
         raise HTTPException(400, "Enter a valid email address")
@@ -262,6 +359,75 @@ def signup(body: SignupIn, user=Depends(admin_user)):
         return {"id": cursor.lastrowid, "name": body.name.strip(), "email": email, "role": "staff"}
 
 
+@app.get("/admin/users")
+def list_staff_users(user=Depends(admin_user)):
+    with connect() as connection:
+        rows = connection.execute(
+            "SELECT id, name, email, role, created FROM users WHERE role IN ('staff', 'admin') ORDER BY role DESC, name"
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+
+@app.delete("/admin/users/{user_id}", status_code=204)
+def delete_staff_user(user_id: int, user=Depends(admin_user)):
+    if user_id == user["id"]:
+        raise HTTPException(400, "You cannot delete your own administrator account")
+    with connect() as connection:
+        account = connection.execute(
+            "SELECT id, role FROM users WHERE id = ?", (user_id,)
+        ).fetchone()
+        if not account:
+            raise HTTPException(404, "Account not found")
+        if account["role"] not in ("staff", "admin"):
+            raise HTTPException(400, "Only staff and administrator accounts can be deleted here")
+        if account["role"] == "admin":
+            raise HTTPException(400, "Administrator accounts cannot be deleted")
+        connection.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
+        connection.execute("DELETE FROM push_subscriptions WHERE user_id = ?", (user_id,))
+        connection.execute("DELETE FROM users WHERE id = ?", (user_id,))
+
+
+@app.post("/auth/volunteer/signup", status_code=201)
+def volunteer_signup(body: SignupIn):
+    if len(body.password) < 8:
+        raise HTTPException(400, "Password must be at least 8 characters")
+    if body.lat is None or body.lng is None:
+        raise HTTPException(400, "A volunteer location is required")
+    if not -90 <= body.lat <= 90 or not -180 <= body.lng <= 180:
+        raise HTTPException(400, "Enter a valid location")
+    if body.radius_km < 1 or body.radius_km > 500:
+        raise HTTPException(400, "Alert radius must be between 1 and 500 km")
+    email = body.email.strip().lower()
+    if not body.name.strip() or not email or "@" not in email:
+        raise HTTPException(400, "Enter a name and valid email address")
+    with connect() as connection:
+        try:
+            cursor = connection.execute(
+                "INSERT INTO users (name, email, password_hash, role, lat, lng, radius_km, created) VALUES (?, ?, ?, 'volunteer', ?, ?, ?, ?)",
+                (body.name.strip(), email, password_hash(body.password), body.lat, body.lng, body.radius_km, now()),
+            )
+        except sqlite3.IntegrityError:
+            raise HTTPException(409, "An account with this email already exists")
+        user_id = cursor.lastrowid
+        token = secrets.token_urlsafe(32)
+        connection.execute(
+            "INSERT INTO sessions (token_hash, user_id, expires_at, created) VALUES (?, ?, strftime('%s', 'now') + ?, ?)",
+            (token_hash(token), user_id, TOKEN_TTL_SECONDS, now()),
+        )
+        return {
+            "token": token,
+            "user": {
+                "id": user_id,
+                "name": body.name.strip(),
+                "email": email,
+                "role": "volunteer",
+                "lat": body.lat,
+                "lng": body.lng,
+                "radius_km": body.radius_km,
+            },
+        }
+
+
 @app.post("/auth/login")
 def login(body: LoginIn):
     with connect() as connection:
@@ -270,15 +436,71 @@ def login(body: LoginIn):
             raise HTTPException(401, "Incorrect email or password")
         token = secrets.token_urlsafe(32)
         connection.execute(
-            "INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, strftime('%s', 'now') + ?)",
-            (token_hash(token), user["id"], TOKEN_TTL_SECONDS),
+            "INSERT INTO sessions (token_hash, user_id, expires_at, created) VALUES (?, ?, strftime('%s', 'now') + ?, ?)",
+            (token_hash(token), user["id"], TOKEN_TTL_SECONDS, now()),
         )
-        return {"token": token, "user": {"id": user["id"], "name": user["name"], "email": user["email"], "role": user["role"]}}
+        return {"token": token, "user": {"id": user["id"], "name": user["name"], "email": user["email"], "role": user["role"], "lat": user["lat"], "lng": user["lng"], "radius_km": user["radius_km"]}}
 
 
 @app.get("/auth/me")
 def current_user(user=Depends(staff_user)):
     return user
+
+
+@app.get("/push/vapid-public-key")
+def vapid_public_key():
+    key = os.getenv("VAPID_PUBLIC_KEY")
+    return {"publicKey": key}
+
+
+@app.put("/volunteers/location")
+def update_volunteer_location(body: LocationIn, user=Depends(volunteer_user)):
+    if not -90 <= body.lat <= 90 or not -180 <= body.lng <= 180:
+        raise HTTPException(400, "Enter a valid location")
+    if body.radius_km < 1 or body.radius_km > 500:
+        raise HTTPException(400, "Alert radius must be between 1 and 500 km")
+    with connect() as connection:
+        connection.execute(
+            "UPDATE users SET lat = ?, lng = ?, radius_km = ? WHERE id = ?",
+            (body.lat, body.lng, body.radius_km, user["id"]),
+        )
+    return {"lat": body.lat, "lng": body.lng, "radius_km": body.radius_km}
+
+
+@app.get("/volunteers/alerts")
+def volunteer_alerts(user=Depends(volunteer_user)):
+    if user["lat"] is None or user["lng"] is None:
+        return []
+    radius = user["radius_km"] or 25
+    with connect() as connection:
+        rows = connection.execute(
+            "SELECT * FROM incidents WHERE status NOT IN ('Resolved', 'Closed') ORDER BY id DESC"
+        ).fetchall()
+        alerts = []
+        for row in rows:
+            distance = distance_km(user["lat"], user["lng"], row["lat"], row["lng"])
+            if distance <= radius:
+                alerts.append({**incident_json(row, connection), "distance_km": round(distance, 1)})
+        return alerts
+
+
+@app.put("/volunteers/push-subscription")
+def save_push_subscription(body: PushSubscriptionIn, user=Depends(volunteer_user)):
+    if not body.endpoint or not body.p256dh or not body.auth:
+        raise HTTPException(400, "Invalid push subscription")
+    with connect() as connection:
+        connection.execute(
+            """
+            INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth, created)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(endpoint) DO UPDATE SET
+              user_id = excluded.user_id,
+              p256dh = excluded.p256dh,
+              auth = excluded.auth
+            """,
+            (user["id"], body.endpoint, body.p256dh, body.auth, now()),
+        )
+    return {"ok": True}
 
 
 @app.get("/incidents")
@@ -303,10 +525,12 @@ def report_incident(body: IncidentIn):
             "INSERT INTO incident_log VALUES (NULL, ?, ?, ?)",
             (incident_id, created, "Reported"),
         )
-        return incident_json(
+        incident = incident_json(
             connection.execute("SELECT * FROM incidents WHERE id = ?", (incident_id,)).fetchone(),
             connection,
         )
+        notify_nearby_volunteers(connection, incident)
+        return incident
 
 
 @app.patch("/incidents/{incident_id}/assign")
@@ -421,4 +645,9 @@ def sensor_data(body: SensorIn, user=Depends(staff_user)):
                 "INSERT INTO incident_log VALUES (NULL, ?, ?, ?)",
                 (cursor.lastrowid, created, "Reported"),
             )
+            incident = incident_json(
+                connection.execute("SELECT * FROM incidents WHERE id = ?", (cursor.lastrowid,)).fetchone(),
+                connection,
+            )
+            notify_nearby_volunteers(connection, incident)
     return {"breached": breached}

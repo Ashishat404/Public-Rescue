@@ -51,6 +51,12 @@ export default function App() {
   const [authBusy, setAuthBusy] = useState(false);
   const [authError, setAuthError] = useState("");
   const [authForm, setAuthForm] = useState({ name: "", email: "", password: "" });
+  const [volunteerAlerts, setVolunteerAlerts] = useState([]);
+  const [volunteerLocation, setVolunteerLocation] = useState({ lat: "", lng: "", radius_km: 25 });
+  const [locationBusy, setLocationBusy] = useState(false);
+  const [staffAccounts, setStaffAccounts] = useState([]);
+  const [staffForm, setStaffForm] = useState({ name: "", email: "", password: "" });
+  const [staffBusy, setStaffBusy] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -61,6 +67,28 @@ export default function App() {
 
   useEffect(() => { load(); const id = setInterval(load, 5000); return () => clearInterval(id); }, [load]);
   useEffect(() => { if (localStorage.getItem("rescue_staff_token")) api.me().then(setUser).catch(() => localStorage.removeItem("rescue_staff_token")); }, []);
+  useEffect(() => {
+    if (user?.role !== "admin") return undefined;
+    api.staffUsers().then(setStaffAccounts).catch((accountError) => setError(accountError.message));
+  }, [user]);
+  useEffect(() => {
+    if (user?.role !== "volunteer") return undefined;
+    setVolunteerLocation({
+      lat: user.lat ?? "",
+      lng: user.lng ?? "",
+      radius_km: user.radius_km ?? 25,
+    });
+    const loadAlerts = async () => {
+      try {
+        setVolunteerAlerts(await api.volunteerAlerts());
+      } catch (alertError) {
+        setError(alertError.message);
+      }
+    };
+    loadAlerts();
+    const interval = setInterval(loadAlerts, 10000);
+    return () => clearInterval(interval);
+  }, [user]);
   useEffect(() => {
     if (!menuOpen) return undefined;
     const closeOnEscape = (event) => {
@@ -92,12 +120,74 @@ export default function App() {
     } catch (authRequestError) { setAuthError(authRequestError.message); } finally { setAuthBusy(false); }
   };
   const signOut = () => { localStorage.removeItem("rescue_staff_token"); setUser(null); };
+  const useVolunteerLocation = () => {
+    if (!navigator.geolocation) {
+      setError("Location access is not supported by this browser.");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => setVolunteerLocation((location) => ({ ...location, lat: coords.latitude, lng: coords.longitude })),
+      () => setError("Location access was denied."),
+      { enableHighAccuracy: true, timeout: 10000 },
+    );
+  };
+  const updateVolunteerLocation = async (event) => {
+    event.preventDefault();
+    setLocationBusy(true);
+    try {
+      const saved = await api.volunteerLocation({
+        lat: Number(volunteerLocation.lat),
+        lng: Number(volunteerLocation.lng),
+        radius_km: Number(volunteerLocation.radius_km),
+      });
+      setUser((current) => ({ ...current, ...saved }));
+      setVolunteerLocation(saved);
+      setError("");
+    } catch (locationError) {
+      setError(locationError.message);
+    } finally {
+      setLocationBusy(false);
+    }
+  };
+  const reloadStaffAccounts = async () => {
+    try {
+      setStaffAccounts(await api.staffUsers());
+    } catch (accountError) {
+      setError(accountError.message);
+    }
+  };
+  const createStaffAccount = async (event) => {
+    event.preventDefault();
+    setStaffBusy(true);
+    try {
+      await api.signup(staffForm);
+      setStaffForm({ name: "", email: "", password: "" });
+      await reloadStaffAccounts();
+      setError("");
+    } catch (accountError) {
+      setError(accountError.message);
+    } finally {
+      setStaffBusy(false);
+    }
+  };
+  const deleteStaffAccount = async (account) => {
+    if (!window.confirm(`Delete staff account ${account.email}?`)) return;
+    try {
+      await api.deleteStaffUser(account.id);
+      await reloadStaffAccounts();
+      setError("");
+    } catch (accountError) {
+      setError(accountError.message);
+    }
+  };
   const navItems = [
     ["overview", "◈", "Overview"],
     ["incidents", "!", "Incidents"],
     ["teams", "+", "Response teams"],
     ["sensors", "⌁", "Sensors"],
     ["reports", "▤", "Reports"],
+    ...(user?.role === "admin" ? [["staff-accounts", "◎", "Staff accounts"]] : []),
+    ...(user?.role === "volunteer" ? [["volunteer-alerts", "⌖", "Nearby requests"], ["volunteer-location", "◎", "My location"]] : []),
   ];
 
   if (publicView) {
@@ -105,6 +195,11 @@ export default function App() {
       <Landing
         onReport={() => { setPublicView(false); setPicking(true); }}
         onEnter={(nextView = "overview") => { setView(nextView); setPublicView(false); }}
+        onVolunteerAuth={(volunteer) => {
+          setUser(volunteer);
+          setView("volunteer-alerts");
+          setPublicView(false);
+        }}
       />
     );
   }
@@ -174,6 +269,44 @@ export default function App() {
           {view === "teams" && <div className="data-card"><div className="card-heading"><div><p className="eyebrow">Statewide deployment roster</p><h2>Response teams</h2></div><span className="count-label">{free.length} available</span></div><div className="team-grid">{teams.map((team) => <div className="team-row" key={team.id}><span className={team.available ? "team-dot ready" : "team-dot busy"} /><div><b>{team.name}</b><small>{team.district} · {team.available ? "Ready to deploy" : "Currently assigned"}</small></div><span className="status-pill">{team.available ? "Available" : "Busy"}</span></div>)}</div></div>}
           {view === "sensors" && <div className="data-card"><div className="card-heading"><div><p className="eyebrow">Statewide field monitoring</p><h2>Connected sensors</h2></div><span className="count-label">{sensors.length} online</span></div>{sensors.length === 0 ? <p className="empty-copy">No sensor readings have been received yet.</p> : <div className="sensor-grid">{sensors.map((sensor) => <div className="sensor-row" key={sensor.sensor_id}><div><b>{sensor.sensor_id}</b><small>{sensor.district || "Unassigned"} · {sensor.lat.toFixed(3)}, {sensor.lng.toFixed(3)}</small></div><span>Rain {sensor.rainfall_mm} mm</span><span>Soil {sensor.soil_moisture}%</span><span className={sensor.breached ? "sensor-alert" : "sensor-ok"}>{sensor.breached ? "Alert" : "Normal"}</span></div>)}</div>}</div>}
           {view === "reports" && <div className="report-grid"><div className="report-stat"><span>Total incidents</span><strong>{incidents.length}</strong><small>All reported events</small></div><div className="report-stat"><span>Resolved</span><strong>{incidents.filter((i) => ["Resolved", "Closed"].includes(i.status)).length}</strong><small>Completed response cases</small></div><div className="report-stat"><span>Sensor alerts</span><strong>{incidents.filter((i) => i.source === "sensor").length}</strong><small>Automatically detected</small></div></div>}
+          {view === "staff-accounts" && user?.role === "admin" && (
+            <div className="staff-admin-grid">
+              <form className="data-card staff-account-form" onSubmit={createStaffAccount}>
+                <div className="card-heading">
+                  <div><p className="eyebrow">Administrator</p><h2>Add staff account</h2></div>
+                </div>
+                <div className="staff-account-fields">
+                  <label>Full name<input required value={staffForm.name} onChange={(event) => setStaffForm({ ...staffForm, name: event.target.value })} /></label>
+                  <label>Email<input required type="email" value={staffForm.email} onChange={(event) => setStaffForm({ ...staffForm, email: event.target.value })} /></label>
+                  <label>Password<input required minLength="8" type="password" value={staffForm.password} onChange={(event) => setStaffForm({ ...staffForm, password: event.target.value })} /></label>
+                  <div className="row"><button className="on" disabled={staffBusy}>{staffBusy ? "Creating..." : "Create staff account"}</button></div>
+                </div>
+              </form>
+              <div className="data-card">
+                <div className="card-heading">
+                  <div><p className="eyebrow">Account directory</p><h2>Staff accounts</h2></div>
+                  <span className="count-label">{staffAccounts.filter((account) => account.role === "staff").length} staff</span>
+                </div>
+                {staffAccounts.length === 0 ? (
+                  <p className="empty-copy">No accounts found.</p>
+                ) : (
+                  <div className="staff-account-list">
+                    {staffAccounts.map((account) => (
+                      <div className="staff-account-row" key={account.id}>
+                        <div><b>{account.name}</b><small>{account.email}</small></div>
+                        <span className="status-pill">{account.role}</span>
+                        {account.role === "staff" && (
+                          <button type="button" className="delete-account-button" onClick={() => deleteStaffAccount(account)}>Delete</button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          {view === "volunteer-alerts" && <div className="view-grid"><div className="data-card"><div className="card-heading"><div><p className="eyebrow">Your active radius</p><h2>Nearby incident requests</h2></div><span className="count-label">{volunteerAlerts.length} nearby</span></div>{volunteerAlerts.length === 0 ? <p className="empty-copy">No active incidents are currently inside your alert radius.</p> : <ul className="list">{volunteerAlerts.map((alert) => <li key={alert.id}><span className="dot" style={{ background: COLOR[alert.status] }} /><div><b>#{alert.id} {alert.type}</b><small> · {alert.severity} · {alert.distance_km} km away</small><br /><small>{alert.status} · {alert.description || "No description"}</small></div></li>)}</ul>}</div></div>}
+          {view === "volunteer-location" && <form className="data-card volunteer-location-form" onSubmit={updateVolunteerLocation}><div className="card-heading"><div><p className="eyebrow">Alert settings</p><h2>My location</h2></div></div><div className="volunteer-location-fields"><button type="button" className="location-button" onClick={useVolunteerLocation}>Use my current location</button><label>Latitude<input required type="number" step="any" min="-90" max="90" value={volunteerLocation.lat} onChange={(event) => setVolunteerLocation({ ...volunteerLocation, lat: event.target.value })} /></label><label>Longitude<input required type="number" step="any" min="-180" max="180" value={volunteerLocation.lng} onChange={(event) => setVolunteerLocation({ ...volunteerLocation, lng: event.target.value })} /></label><label>Alert radius (km)<input required type="number" min="1" max="500" value={volunteerLocation.radius_km} onChange={(event) => setVolunteerLocation({ ...volunteerLocation, radius_km: event.target.value })} /></label><div className="row"><button className="on" disabled={locationBusy}>{locationBusy ? "Saving..." : "Save location"}</button></div></div></form>}
         </section>}
       </main>
 
