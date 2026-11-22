@@ -124,6 +124,18 @@ def init_db():
                 expires_at INTEGER NOT NULL,
                 created TEXT NOT NULL DEFAULT ''
             );
+            CREATE TABLE IF NOT EXISTS staff_requests (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                email TEXT NOT NULL,
+                password_hash TEXT NOT NULL,
+                role TEXT NOT NULL DEFAULT 'staff',
+                note TEXT NOT NULL DEFAULT '',
+                status TEXT NOT NULL DEFAULT 'pending',
+                created TEXT NOT NULL,
+                decided TEXT,
+                decided_by INTEGER
+            );
             """
         )
         team_columns = [item[1] for item in connection.execute("PRAGMA table_info(teams)")]
@@ -222,6 +234,17 @@ class PushSubscriptionIn(BaseModel):
 class LoginIn(BaseModel):
     email: str
     password: str
+
+
+class StaffRequestIn(BaseModel):
+    name: str
+    email: str
+    password: str
+    note: str = ""
+
+
+class StaffRequestDecisionIn(BaseModel):
+    role: str = "staff"
 
 
 def password_hash(password: str, salt: Optional[bytes] = None):
@@ -385,6 +408,88 @@ def delete_staff_user(user_id: int, user=Depends(admin_user)):
         connection.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
         connection.execute("DELETE FROM push_subscriptions WHERE user_id = ?", (user_id,))
         connection.execute("DELETE FROM users WHERE id = ?", (user_id,))
+
+
+@app.post("/auth/staff/request", status_code=201)
+def request_staff_access(body: StaffRequestIn):
+    if len(body.password) < 8:
+        raise HTTPException(400, "Password must be at least 8 characters")
+    if not body.name.strip():
+        raise HTTPException(400, "Enter your full name")
+    email = body.email.strip().lower()
+    if not email or "@" not in email:
+        raise HTTPException(400, "Enter a valid email address")
+    with connect() as connection:
+        existing_user = connection.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
+        if existing_user:
+            raise HTTPException(409, "An account with this email already exists")
+        pending = connection.execute(
+            "SELECT id FROM staff_requests WHERE email = ? AND status = 'pending'", (email,)
+        ).fetchone()
+        if pending:
+            raise HTTPException(409, "A request for this email is already pending approval")
+        connection.execute(
+            "INSERT INTO staff_requests (name, email, password_hash, role, note, status, created) VALUES (?, ?, ?, 'staff', ?, 'pending', ?)",
+            (body.name.strip(), email, password_hash(body.password), body.note.strip(), now()),
+        )
+    return {"status": "pending"}
+
+
+@app.get("/admin/staff-requests")
+def list_staff_requests(status: str = "pending", user=Depends(admin_user)):
+    with connect() as connection:
+        if status == "all":
+            rows = connection.execute(
+                "SELECT id, name, email, role, note, status, created, decided FROM staff_requests ORDER BY created DESC"
+            ).fetchall()
+        else:
+            rows = connection.execute(
+                "SELECT id, name, email, role, note, status, created, decided FROM staff_requests WHERE status = ? ORDER BY created DESC",
+                (status,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+
+@app.post("/admin/staff-requests/{request_id}/approve")
+def approve_staff_request(request_id: int, body: StaffRequestDecisionIn, user=Depends(admin_user)):
+    role = body.role if body.role in ("staff", "admin") else "staff"
+    with connect() as connection:
+        request_row = connection.execute(
+            "SELECT * FROM staff_requests WHERE id = ?", (request_id,)
+        ).fetchone()
+        if not request_row:
+            raise HTTPException(404, "Request not found")
+        if request_row["status"] != "pending":
+            raise HTTPException(400, "This request has already been decided")
+        try:
+            cursor = connection.execute(
+                "INSERT INTO users (name, email, password_hash, role, created) VALUES (?, ?, ?, ?, ?)",
+                (request_row["name"], request_row["email"], request_row["password_hash"], role, now()),
+            )
+        except sqlite3.IntegrityError:
+            raise HTTPException(409, "An account with this email already exists")
+        connection.execute(
+            "UPDATE staff_requests SET status = 'approved', role = ?, decided = ?, decided_by = ? WHERE id = ?",
+            (role, now(), user["id"], request_id),
+        )
+        return {"id": cursor.lastrowid, "name": request_row["name"], "email": request_row["email"], "role": role}
+
+
+@app.post("/admin/staff-requests/{request_id}/reject")
+def reject_staff_request(request_id: int, user=Depends(admin_user)):
+    with connect() as connection:
+        request_row = connection.execute(
+            "SELECT id, status FROM staff_requests WHERE id = ?", (request_id,)
+        ).fetchone()
+        if not request_row:
+            raise HTTPException(404, "Request not found")
+        if request_row["status"] != "pending":
+            raise HTTPException(400, "This request has already been decided")
+        connection.execute(
+            "UPDATE staff_requests SET status = 'rejected', decided = ?, decided_by = ? WHERE id = ?",
+            (now(), user["id"], request_id),
+        )
+    return {"status": "rejected"}
 
 
 @app.post("/auth/volunteer/signup", status_code=201)

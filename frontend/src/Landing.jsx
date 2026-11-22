@@ -56,9 +56,14 @@ const FUND_ALLOCATION = [
   { label: "Platform & day-to-day operations", pct: 10 },
 ];
 
-export default function Landing({ onReport, onEnter, onVolunteerAuth }) {
+export default function Landing({ onReport, onEnter, onVolunteerAuth, onSignIn }) {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [staffRequestOpen, setStaffRequestOpen] = useState(false);
+  const [staffRequestBusy, setStaffRequestBusy] = useState(false);
+  const [staffRequestError, setStaffRequestError] = useState("");
+  const [staffRequestDone, setStaffRequestDone] = useState(false);
+  const [staffRequestForm, setStaffRequestForm] = useState({ name: "", email: "", password: "", note: "" });
   const [volunteerOpen, setVolunteerOpen] = useState(false);
   const [volunteerMode, setVolunteerMode] = useState("signup");
   const [volunteerBusy, setVolunteerBusy] = useState(false);
@@ -79,6 +84,12 @@ export default function Landing({ onReport, onEnter, onVolunteerAuth }) {
     document.body.classList.add("drawer-open");
     return () => document.body.classList.remove("drawer-open");
   }, [volunteerOpen]);
+
+  useEffect(() => {
+    if (!staffRequestOpen) return undefined;
+    document.body.classList.add("drawer-open");
+    return () => document.body.classList.remove("drawer-open");
+  }, [staffRequestOpen]);
 
   const useCurrentLocation = () => {
     if (!navigator.geolocation) {
@@ -165,6 +176,27 @@ export default function Landing({ onReport, onEnter, onVolunteerAuth }) {
     }
   };
 
+  const submitStaffRequest = async (event) => {
+    event.preventDefault();
+    setStaffRequestBusy(true);
+    setStaffRequestError("");
+    try {
+      await api.requestStaffAccess(staffRequestForm);
+      setStaffRequestDone(true);
+    } catch (error) {
+      setStaffRequestError(error.message);
+    } finally {
+      setStaffRequestBusy(false);
+    }
+  };
+
+  const closeStaffRequest = () => {
+    setStaffRequestOpen(false);
+    setStaffRequestDone(false);
+    setStaffRequestError("");
+    setStaffRequestForm({ name: "", email: "", password: "", note: "" });
+  };
+
   return (
     <div className="landing" id="home">
       <header className={scrolled ? "landing-nav scrolled" : "landing-nav"}>
@@ -187,6 +219,9 @@ export default function Landing({ onReport, onEnter, onVolunteerAuth }) {
               <button type="button" onClick={() => { setMenuOpen(false); onEnter("teams"); }}><span>▦</span>Response teams</button>
               <button type="button" onClick={() => { setMenuOpen(false); onEnter("sensors"); }}><span>⌁</span>Sensors</button>
               <button type="button" onClick={() => { setMenuOpen(false); onEnter("reports"); }}><span>▤</span>Reports</button>
+              <div className="landing-menu-divider" />
+              <button type="button" onClick={() => { setMenuOpen(false); onSignIn(); }}><span>→</span>Sign in</button>
+              <button type="button" onClick={() => { setMenuOpen(false); setStaffRequestError(""); setStaffRequestOpen(true); }}><span>+</span>Request staff access</button>
             </nav>
           )}
         </div>
@@ -202,7 +237,8 @@ export default function Landing({ onReport, onEnter, onVolunteerAuth }) {
           <a href="#donate">Donate</a>
         </nav>
         <div className="landing-nav-actions">
-          <button type="button" className="link-button" onClick={onEnter}>Control room</button>
+          <button type="button" className="link-button" onClick={() => { setStaffRequestError(""); setStaffRequestOpen(true); }}>Request access</button>
+          <button type="button" className="link-button on" onClick={onSignIn}>Sign in</button>
         </div>
       </header>
 
@@ -334,6 +370,30 @@ export default function Landing({ onReport, onEnter, onVolunteerAuth }) {
               {volunteerMode === "signup" ? "Already a volunteer? Sign in" : "New volunteer? Create an account"}
             </button>
             <div className="row"><button type="button" onClick={() => setVolunteerOpen(false)}>Cancel</button><button className="on" disabled={volunteerBusy}>{volunteerBusy ? "Please wait..." : volunteerMode === "signup" ? "Sign up" : "Sign in"}</button></div>
+          </form>
+        </div>
+      )}
+
+      {staffRequestOpen && (
+        <div className="modal" onClick={closeStaffRequest}>
+          <form className="auth-form" onClick={(event) => event.stopPropagation()} onSubmit={submitStaffRequest}>
+            <p className="eyebrow">Staff access</p>
+            <h2>Request control-room access</h2>
+            {staffRequestDone ? (
+              <>
+                <p>Thanks — your request has been sent to an administrator for review. You'll be able to sign in once it's approved.</p>
+                <div className="row"><button type="button" className="on" onClick={closeStaffRequest}>Close</button></div>
+              </>
+            ) : (
+              <>
+                <label>Full name<input required value={staffRequestForm.name} onChange={(event) => setStaffRequestForm({ ...staffRequestForm, name: event.target.value })} /></label>
+                <label>Work email<input required type="email" value={staffRequestForm.email} onChange={(event) => setStaffRequestForm({ ...staffRequestForm, email: event.target.value })} /></label>
+                <label>Password<input required minLength="8" type="password" value={staffRequestForm.password} onChange={(event) => setStaffRequestForm({ ...staffRequestForm, password: event.target.value })} /></label>
+                <label>District / team (optional)<input value={staffRequestForm.note} onChange={(event) => setStaffRequestForm({ ...staffRequestForm, note: event.target.value })} /></label>
+                {staffRequestError && <p className="auth-error">{staffRequestError}</p>}
+                <div className="row"><button type="button" onClick={closeStaffRequest}>Cancel</button><button className="on" disabled={staffRequestBusy}>{staffRequestBusy ? "Sending..." : "Send request"}</button></div>
+              </>
+            )}
           </form>
         </div>
       )}

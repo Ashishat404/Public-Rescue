@@ -86,6 +86,11 @@ small { color: var(--muted); }
 .staff-account-row small { overflow-wrap: anywhere; }
 .delete-account-button { padding: 7px 10px; border: 1px solid #edc5be; border-radius: 6px; background: #fff4f2; color: #9a2818; font-weight: 700; }
 .delete-account-button:hover { background: #fde8e4; }
+.staff-account-row > .staff-request-actions { display: flex; gap: 8px; }
+.reject-button { padding: 7px 10px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--muted); font-weight: 700; }
+.reject-button:hover { border-color: #edc5be; color: #9a2818; }
+.approve-button { padding: 7px 12px; border: 1px solid #bfe0cc; border-radius: 6px; background: #eaf7ee; color: #1f6b3d; font-weight: 700; }
+.approve-button:hover { background: #ddf1e3; }
 label { display: block; margin: 10px 0; font-weight: 600; }
 select, input, textarea { display: block; width: 100%; max-width: 440px; margin-top: 4px; padding: 9px 10px; font: inherit; color: var(--ink); border: 1px solid var(--line); border-radius: 6px; background: #fbfdfc; }
 select:focus, input:focus, textarea:focus { border-color: var(--pine); }
@@ -96,7 +101,8 @@ select:focus, input:focus, textarea:focus { border-color: var(--pine); }
 .map { height: 345px; }
 .map.picking { cursor: crosshair; }
 .modal { position: fixed; inset: 0; background: rgba(16,59,54,.58); display: flex; justify-content: center; align-items: flex-start; overflow-y: auto; padding: 40px 16px; z-index: 1000; }
-.modal form { margin: auto; background: #fff; padding: 26px; border: 1px solid var(--line); border-radius: 10px; width: min(420px, 92vw); box-shadow: 0 18px 50px rgba(8,30,27,.25); }.auth-form h2 { margin: 0 0 18px; color: var(--pine-dark); font: 700 24px Georgia, serif; }
+.modal form { margin: auto; background: #fff; padding: 26px; border: 1px solid var(--line); border-radius: 10px; width: min(420px, 92vw); box-shadow: 0 18px 50px rgba(8,30,27,.25); }
+.auth-form h2 { margin: 0 0 18px; color: var(--pine-dark); font: 700 24px Georgia, serif; }
 .auth-form label { text-align: left; }
 .auth-error { padding: 9px; border-radius: 6px; background: #fde8e4; color: #8f1d0f; }
 .auth-switch { width: 100%; margin-top: 12px; padding: 7px; background: transparent; color: var(--pine); font-size: 12px; font-weight: 700; }
@@ -165,7 +171,7 @@ select:focus, input:focus, textarea:focus { border-color: var(--pine); }
   .team-row, .sensor-row { align-items: flex-start; flex-wrap: wrap; }
   .team-row > div, .sensor-row > div { flex: 1 1 100%; }
   .sensor-row > span { max-width: 100%; }
-  .modal form { width: calc(100vw - 28px); max-height: calc(100dvh - 28px); overflow-y: auto; }
+  .modal form { width: calc(100vw - 28px); }
   .row { flex-wrap: wrap; }
   .row button { flex: 1 1 120px; }
 }
@@ -233,12 +239,15 @@ select:focus, input:focus, textarea:focus { border-color: var(--pine); }
 }
 .landing-menu-panel button:hover { background: rgba(255,255,255,.12); color: var(--sun); }
 .landing-menu-panel button span { width: 18px; color: var(--sun); text-align: center; }
+.landing-menu-divider { height: 1px; margin: 4px 2px; background: rgba(255,255,255,.14); }
 .landing-links { display: flex; align-items: center; gap: 26px; margin-left: auto; }
 .landing-links a { color: #e4ece9; font-size: 14px; font-weight: 600; text-decoration: none; transition: color .15s ease; }
 .landing-links a:hover { color: var(--sun); }
-.landing-nav-actions { display: flex; align-items: center; gap: 24px; margin-left: 28px; }
+.landing-nav-actions { display: flex; align-items: center; gap: 14px; margin-left: 28px; }
 .link-button { color: #e4ece9; font-size: 14px; font-weight: 600; background: transparent; border: 0; padding: 0; cursor: pointer; transition: color .15s ease; }
 .link-button:hover { color: var(--sun); }
+.link-button.on { padding: 9px 16px; border-radius: 7px; background: var(--sun); color: var(--pine-dark); }
+.link-button.on:hover { color: var(--pine-dark); filter: brightness(1.06); }
 .volunteer-link { display: flex; align-items: center; gap: 10px; color: var(--sun); font-weight: 700; font-size: 14px; text-decoration: none; white-space: nowrap; background: transparent; border: 0; cursor: pointer; transition: color .15s ease; }
 .volunteer-link:hover { color: #fff; }
 .volunteer-arrow { color: currentColor; flex: none; overflow: visible; animation: volunteer-arrow-drift 1.8s ease-in-out infinite; }
@@ -359,4 +368,6 @@ select:focus, input:focus, textarea:focus { border-color: var(--pine); }
   .staff-account-row { grid-template-columns: minmax(0, 1fr) auto; }
   .staff-account-row .status-pill { justify-self: end; }
   .delete-account-button { grid-column: 1 / -1; width: 100%; }
+  .staff-request-actions { grid-column: 1 / -1; width: 100%; }
+  .staff-request-actions button { flex: 1; }
 }

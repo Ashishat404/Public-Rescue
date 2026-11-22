@@ -57,6 +57,8 @@ export default function App() {
   const [staffAccounts, setStaffAccounts] = useState([]);
   const [staffForm, setStaffForm] = useState({ name: "", email: "", password: "" });
   const [staffBusy, setStaffBusy] = useState(false);
+  const [staffRequests, setStaffRequests] = useState([]);
+  const [staffRequestDecisionId, setStaffRequestDecisionId] = useState(null);
 
   const load = useCallback(async () => {
     try {
@@ -70,6 +72,7 @@ export default function App() {
   useEffect(() => {
     if (user?.role !== "admin") return undefined;
     api.staffUsers().then(setStaffAccounts).catch((accountError) => setError(accountError.message));
+    api.staffRequests("pending").then(setStaffRequests).catch((requestError) => setError(requestError.message));
   }, [user]);
   useEffect(() => {
     if (user?.role !== "volunteer") return undefined;
@@ -117,7 +120,7 @@ export default function App() {
     event.preventDefault(); setAuthBusy(true); setAuthError("");
     try {
       const result = await api.login({ email: authForm.email, password: authForm.password });
-      localStorage.setItem("rescue_staff_token", result.token); setUser(result.user); setAuthOpen(false); setAuthForm({ name: "", email: "", password: "" });
+      localStorage.setItem("rescue_staff_token", result.token); setUser(result.user); setAuthOpen(false); setAuthForm({ name: "", email: "", password: "" }); setPublicView(false);
     } catch (authRequestError) { setAuthError(authRequestError.message); } finally { setAuthBusy(false); }
   };
   const signOut = () => { localStorage.removeItem("rescue_staff_token"); setUser(null); };
@@ -181,6 +184,38 @@ export default function App() {
       setError(accountError.message);
     }
   };
+  const reloadStaffRequests = async () => {
+    try {
+      setStaffRequests(await api.staffRequests("pending"));
+    } catch (requestError) {
+      setError(requestError.message);
+    }
+  };
+  const approveStaffRequest = async (request) => {
+    setStaffRequestDecisionId(request.id);
+    try {
+      await api.approveStaffRequest(request.id, "staff");
+      await Promise.all([reloadStaffRequests(), reloadStaffAccounts()]);
+      setError("");
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setStaffRequestDecisionId(null);
+    }
+  };
+  const rejectStaffRequest = async (request) => {
+    if (!window.confirm(`Reject the access request from ${request.email}?`)) return;
+    setStaffRequestDecisionId(request.id);
+    try {
+      await api.rejectStaffRequest(request.id);
+      await reloadStaffRequests();
+      setError("");
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setStaffRequestDecisionId(null);
+    }
+  };
   const navItems = [
     ["overview", "◈", "Overview"],
     ["incidents", "!", "Incidents"],
@@ -193,15 +228,19 @@ export default function App() {
 
   if (publicView) {
     return (
-      <Landing
-        onReport={() => { setPublicView(false); setPicking(true); }}
-        onEnter={(nextView = "overview") => { setView(nextView); setPublicView(false); }}
-        onVolunteerAuth={(volunteer) => {
-          setUser(volunteer);
-          setView("volunteer-alerts");
-          setPublicView(false);
-        }}
-      />
+      <>
+        <Landing
+          onReport={() => { setPublicView(false); setPicking(true); }}
+          onEnter={(nextView = "overview") => { setView(nextView); setPublicView(false); }}
+          onVolunteerAuth={(volunteer) => {
+            setUser(volunteer);
+            setView("volunteer-alerts");
+            setPublicView(false);
+          }}
+          onSignIn={openAuth}
+        />
+        {authOpen && <AuthModal form={authForm} setForm={setAuthForm} onSubmit={submitAuth} onClose={() => setAuthOpen(false)} busy={authBusy} error={authError} />}
+      </>
     );
   }
 
@@ -272,6 +311,28 @@ export default function App() {
           {view === "reports" && <div className="report-grid"><div className="report-stat"><span>Total incidents</span><strong>{incidents.length}</strong><small>All reported events</small></div><div className="report-stat"><span>Resolved</span><strong>{incidents.filter((i) => ["Resolved", "Closed"].includes(i.status)).length}</strong><small>Completed response cases</small></div><div className="report-stat"><span>Sensor alerts</span><strong>{incidents.filter((i) => i.source === "sensor").length}</strong><small>Automatically detected</small></div></div>}
           {view === "staff-accounts" && user?.role === "admin" && (
             <div className="staff-admin-grid">
+              <div className="data-card">
+                <div className="card-heading">
+                  <div><p className="eyebrow">Awaiting review</p><h2>Pending access requests</h2></div>
+                  <span className="count-label">{staffRequests.length} pending</span>
+                </div>
+                {staffRequests.length === 0 ? (
+                  <p className="empty-copy">No pending requests. New "Request access" submissions from the landing page will appear here.</p>
+                ) : (
+                  <div className="staff-account-list">
+                    {staffRequests.map((request) => (
+                      <div className="staff-account-row" key={request.id}>
+                        <div><b>{request.name}</b><small>{request.email}{request.note ? ` · ${request.note}` : ""}</small></div>
+                        <span className="status-pill">{request.status}</span>
+                        <div className="staff-request-actions">
+                          <button type="button" className="reject-button" onClick={() => rejectStaffRequest(request)} disabled={staffRequestDecisionId === request.id}>Reject</button>
+                          <button type="button" className="approve-button" onClick={() => approveStaffRequest(request)} disabled={staffRequestDecisionId === request.id}>{staffRequestDecisionId === request.id ? "Working..." : "Approve"}</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
               <form className="data-card staff-account-form" onSubmit={createStaffAccount}>
                 <div className="card-heading">
                   <div><p className="eyebrow">Administrator</p><h2>Add staff account</h2></div>
