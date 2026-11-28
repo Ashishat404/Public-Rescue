@@ -98,6 +98,8 @@ select:focus, input:focus, textarea:focus { border-color: var(--pine); }
 .steps button, .row button { padding: 9px 13px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--ink); }
 .steps button:hover, .row button:hover { border-color: var(--pine); color: var(--pine-dark); }
 .log { padding-left: 18px; margin: 10px 0 0; }
+.log li { padding: 2px 0; }
+.log-actor { margin-left: 8px; padding: 1px 8px; border-radius: 10px; background: rgba(23,74,67,.08); color: var(--pine); font-size: 12px; font-weight: 700; }
 .map { height: 345px; }
 .map.picking { cursor: crosshair; }
 .modal { position: fixed; inset: 0; background: rgba(16,59,54,.58); display: flex; justify-content: center; align-items: flex-start; overflow-y: auto; padding: 40px 16px; z-index: 1000; }

@@ -21,7 +21,7 @@ function IncidentDetail({ incident, free, teams, assign, setStatus, user, onLogi
     {incident.status === "Reported" && !user && <p className="staff-note">Staff login is required to assign teams. <button type="button" onClick={onLogin}>Sign in</button></p>}
     {incident.team_id && <p>Team: <b>{teams.find((team) => team.id === incident.team_id)?.name}</b></p>}
     {incident.status !== "Reported" && user && <div className="steps">{STATUSES.slice(2).map((status) => <button key={status} disabled={incident.status === status} onClick={() => setStatus(incident.id, status)}>{status}</button>)}</div>}
-    <ol className="log">{incident.log.map((entry, index) => <li key={index}>{entry.status} <small>{entry.time.slice(11, 16)} UTC</small></li>)}</ol>
+    <ol className="log">{incident.log.map((entry, index) => <li key={index}>{entry.status} <small>{entry.time.slice(11, 16)} UTC</small>{entry.actor_name && <span className="log-actor">{entry.actor_name}</span>}</li>)}</ol>
   </section>;
 }
 
@@ -301,7 +301,7 @@ export default function App() {
             {sel.status === "Reported" && !user && <p className="staff-note">Staff login is required to assign teams. <button type="button" onClick={() => openAuth()}>Sign in</button></p>}
             {sel.team_id && <p>Team: <b>{teams.find((t) => t.id === sel.team_id)?.name}</b></p>}
             {sel.status !== "Reported" && user && <div className="steps">{STATUSES.slice(2).map((s) => <button key={s} disabled={sel.status === s} onClick={() => setStatus(sel.id, s)}>{s}</button>)}</div>}
-            <ol className="log">{sel.log.map((l, k) => <li key={k}>{l.status} <small>{l.time.slice(11, 16)} UTC</small></li>)}</ol>
+            <ol className="log">{sel.log.map((l, k) => <li key={k}>{l.status} <small>{l.time.slice(11, 16)} UTC</small>{l.actor_name && <span className="log-actor">{l.actor_name}</span>}</li>)}</ol>
           </section>}
         </section> : <section className="data-view" aria-label={`${view} view`}>
           <div className="view-heading"><div><p className="eyebrow">Control room</p><h2>{navItems.find(([key]) => key === view)?.[2]}</h2></div><span className="count-label">Updated live</span></div>

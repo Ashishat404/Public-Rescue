@@ -78,7 +78,8 @@ def init_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 incident_id INTEGER NOT NULL,
                 time TEXT NOT NULL,
-                status TEXT NOT NULL
+                status TEXT NOT NULL,
+                actor_name TEXT
             );
             CREATE TABLE IF NOT EXISTS teams (
                 id INTEGER PRIMARY KEY,
@@ -138,6 +139,9 @@ def init_db():
             );
             """
         )
+        incident_log_columns = [item[1] for item in connection.execute("PRAGMA table_info(incident_log)")]
+        if "actor_name" not in incident_log_columns:
+            connection.execute("ALTER TABLE incident_log ADD COLUMN actor_name TEXT")
         team_columns = [item[1] for item in connection.execute("PRAGMA table_info(teams)")]
         sensor_columns = [item[1] for item in connection.execute("PRAGMA table_info(sensors)")]
         if "district" not in team_columns:
@@ -350,7 +354,7 @@ def incident_json(row, connection):
     incident["log"] = [
         dict(item)
         for item in connection.execute(
-            "SELECT time, status FROM incident_log WHERE incident_id = ? ORDER BY id",
+            "SELECT time, status, actor_name FROM incident_log WHERE incident_id = ? ORDER BY id",
             (row["id"],),
         ).fetchall()
     ]
@@ -627,7 +631,7 @@ def report_incident(body: IncidentIn):
         )
         incident_id = cursor.lastrowid
         connection.execute(
-            "INSERT INTO incident_log VALUES (NULL, ?, ?, ?)",
+            "INSERT INTO incident_log VALUES (NULL, ?, ?, ?, NULL)",
             (incident_id, created, "Reported"),
         )
         incident = incident_json(
@@ -658,8 +662,8 @@ def assign(incident_id: int, body: AssignIn, user=Depends(staff_user)):
             (body.team_id, incident_id),
         )
         connection.execute(
-            "INSERT INTO incident_log VALUES (NULL, ?, ?, ?)",
-            (incident_id, timestamp, "Assigned"),
+            "INSERT INTO incident_log VALUES (NULL, ?, ?, ?, ?)",
+            (incident_id, timestamp, "Assigned", user["name"]),
         )
         return incident_json(
             connection.execute("SELECT * FROM incidents WHERE id = ?", (incident_id,)).fetchone(),
@@ -683,8 +687,8 @@ def set_status(incident_id: int, body: StatusIn, user=Depends(staff_user)):
             (body.status, incident_id),
         )
         connection.execute(
-            "INSERT INTO incident_log VALUES (NULL, ?, ?, ?)",
-            (incident_id, timestamp, body.status),
+            "INSERT INTO incident_log VALUES (NULL, ?, ?, ?, ?)",
+            (incident_id, timestamp, body.status, user["name"]),
         )
         if body.status in ("Resolved", "Closed") and incident["team_id"]:
             connection.execute(
@@ -747,7 +751,7 @@ def sensor_data(body: SensorIn, user=Depends(staff_user)):
                 ),
             )
             connection.execute(
-                "INSERT INTO incident_log VALUES (NULL, ?, ?, ?)",
+                "INSERT INTO incident_log VALUES (NULL, ?, ?, ?, NULL)",
                 (cursor.lastrowid, created, "Reported"),
             )
             incident = incident_json(
